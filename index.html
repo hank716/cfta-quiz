@@ -319,7 +319,7 @@ function vHome(app) {
       <button class="btn" id="hMock">模擬考</button>
       ${nWrong ? `<button class="btn" id="hWrong">練錯題（${nWrong}）</button>` : ""}
     </div>
-    <p class="muted small">進度只存在這台裝置的瀏覽器裡。換裝置或清除 Safari 資料前，請先到「備份」匯出。</p>`;
+    <p class="muted small">題目已存在這台裝置，沒有網路也能用。作答進度只存在這台裝置裡；換裝置或清除 Safari 資料前，請先到「備份」匯出。</p>`;
   $("#hPractice").onclick = () => go("practice");
   $("#hMock").onclick = () => go(S.run ? "mockrun" : "mock");
   if (nWrong) $("#hWrong").onclick = () => startSession(shuffle(Object.keys(S.wrong)), "錯題本");
@@ -698,6 +698,11 @@ document.addEventListener("keydown", e => {
 });
 document.addEventListener("visibilitychange", () => { if (!document.hidden && view === "mockrun") render(); });
 
+/* ---------- offline ---------- */
+if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+
 /* ---------- boot ---------- */
 fetch("questions.json").then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(data => {
   Q = data; QI = Object.fromEntries(Q.map(q => [q.id, q]));
@@ -705,7 +710,7 @@ fetch("questions.json").then(r => { if (!r.ok) throw new Error(r.status); return
   const h = (location.hash || "").slice(1);
   go(S.run ? "mockrun" : ["home","practice","mock","wrong","backup"].includes(h) ? h : "home");
 }).catch(() => {
-  $("#app").innerHTML = `<section class="panel"><h2>題目載入失敗</h2><p class="muted">請確認網路連線後重新整理頁面。</p><div class="row"><button class="btn primary" onclick="location.reload()">重新整理</button></div></section>`;
+  $("#app").innerHTML = `<section class="panel"><h2>題目載入失敗</h2><p class="muted">第一次使用需要連上網路，載入一次後就能離線使用。請確認網路連線後重新整理頁面。</p><div class="row"><button class="btn primary" onclick="location.reload()">重新整理</button></div></section>`;
 });
 </script>
 </body>
