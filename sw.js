@@ -1,5 +1,5 @@
 // Offline support: keep the app and all questions on the device.
-const VERSION = "cfta-v1";
+const VERSION = "cfta-v2";
 const CORE = ["./", "index.html", "questions.json", "manifest.webmanifest", "apple-touch-icon.png", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", e => {

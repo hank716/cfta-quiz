@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>CFTA 刷題本</title>
-<meta name="description" content="CFTA（Chartered Fintech Associate）自編練習題：419 題章末題、題庫與兩回模擬考。">
+<meta name="description" content="CFTA（Chartered Fintech Associate）自編練習題：419 題章末題、題庫與兩回模擬考，中英對照。">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CFTA 刷題">
@@ -75,6 +75,10 @@ button { cursor: pointer; }
 .tabs { display: flex; gap: 4px; flex-wrap: wrap; }
 .tab { border: 0; background: none; padding: 10px 14px; border-radius: 10px; color: var(--muted); font-size: 16px; min-height: 44px; }
 .tab[aria-current="page"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.lang { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.lang button { border: 0; background: none; padding: 8px 12px; min-height: 40px; min-width: 48px; font-size: 14px; color: var(--muted); font-family: var(--font-data); }
+.lang button + button { border-left: 1px solid var(--line); }
+.lang button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
 .badge { display: inline-block; min-width: 1.6em; padding: 0 .45em; margin-left: 4px; border-radius: 99px; background: var(--bad-soft); color: var(--bad); font-family: var(--font-data); font-size: 12px; line-height: 1.6; text-align: center; }
 
 .main { padding-block: 24px 64px; display: grid; gap: 20px; }
@@ -138,6 +142,8 @@ legend { padding: 0; margin-bottom: 8px; font-weight: 600; }
 .opt.wrong { border-color: var(--bad); background: var(--bad-soft); }
 .opt.wrong .k { color: var(--bad); }
 .opt:disabled { cursor: default; color: inherit; }
+.sub { display: block; color: var(--muted); font-size: .88em; line-height: 1.55; margin-top: 4px; }
+.explain .zh { border-top: 1px dashed var(--line); padding-top: 8px; }
 .verdict { font-weight: 700; font-size: 18px; }
 .verdict.ok { color: var(--ok); }
 .verdict.no { color: var(--bad); }
@@ -199,6 +205,11 @@ textarea { width: 100%; min-height: 120px; border: 1px solid var(--line); border
       <button class="tab" data-view="wrong">錯題本<span class="badge" id="wrongBadge" hidden></span></button>
       <button class="tab" data-view="backup">備份</button>
     </nav>
+    <div class="lang" role="group" aria-label="題目語言">
+      <button data-lang="both" title="英文為主，中文對照">中英</button>
+      <button data-lang="en" title="只顯示英文（同正式考試）">EN</button>
+      <button data-lang="zh" title="只顯示中文">中</button>
+    </div>
   </div>
 </header>
 <main class="main" id="app"><div class="loading">載入題目中…</div></main>
@@ -233,6 +244,32 @@ function pct(a, b) { return b ? Math.round(a / b * 100) : null; }
 function toast(msg) { const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 2200); }
 function fmtTime(sec) { sec = Math.max(0, Math.round(sec)); const m = Math.floor(sec / 60), s = sec % 60; return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`; }
 function fmtDate(t) { const d = new Date(t); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; }
+
+/* ---------- language: "both" (English first, Chinese below), "en", "zh" ---------- */
+function lang() { return ["both", "en", "zh"].includes(S.prefs.lang) ? S.prefs.lang : "both"; }
+function stripRef(s) { return s.replace(/〔[^〕]*〕/g, "").trim(); }
+function bi(en, zh, fmt = esc) {
+  const L = lang();
+  if (L === "zh" || !en) return fmt(zh);
+  if (L === "en" || en === zh) return `<span lang="en">${fmt(en)}</span>`;
+  return `<span lang="en">${fmt(en)}</span><span class="sub" lang="zh-Hant">${fmt(zh)}</span>`;
+}
+function stemHtml(q) { return bi(q.stem_en, q.stem, rich); }
+function optText(q, k) { return bi(q.options_en && q.options_en[k], q.options[k]); }
+function stemShort(q) { return lang() !== "zh" && q.stem_en ? q.stem_en : q.stem; }
+function explainHtml(q) {
+  const L = lang(), zh = rich(stripRef(q.explain)), en = q.explain_en ? rich(q.explain_en) : "";
+  const body = L === "zh" || !en ? `<p>${zh}</p>` : L === "en" ? `<p lang="en">${en}</p>` : `<p lang="en">${en}</p><p class="zh" lang="zh-Hant">${zh}</p>`;
+  const ref = !q.ref ? "" : L === "zh" || !q.ref_en ? `原書 ${esc(q.ref)}` : `Book ${esc(q.ref_en)}`;
+  return `<div class="explain">${body}${ref ? `<span class="ref">${ref}</span>` : ""}</div>`;
+}
+function updateLang() {
+  document.querySelectorAll(".lang button").forEach(b => b.setAttribute("aria-pressed", b.dataset.lang === lang()));
+}
+document.querySelectorAll(".lang button").forEach(b => b.addEventListener("click", () => {
+  S.prefs.lang = b.dataset.lang; save(); updateLang();
+  if (Q.length) { const y = window.scrollY; render(); window.scrollTo(0, y); }
+}));
 
 function record(id, pick) {
   const q = QI[id], ok = pick === q.answer;
@@ -394,7 +431,7 @@ function vQuiz(app) {
     const L = "ABCD"[k];
     let cls = "";
     if (answered) { if (L === q.answer) cls = "right"; else if (L === pick) cls = "wrong"; }
-    return `<button class="opt ${cls}" data-k="${L}" ${answered ? "disabled" : ""}><span class="k">${L}</span><span>${esc(o)}</span></button>`;
+    return `<button class="opt ${cls}" data-k="${L}" ${answered ? "disabled" : ""}><span class="k">${L}</span><span>${optText(q, k)}</span></button>`;
   }).join("");
   const ok = pick === q.answer;
   app.innerHTML = `
@@ -404,11 +441,11 @@ function vQuiz(app) {
     </div>
     <article class="panel">
       <div class="row"><span class="pill gold">${srcLabel(q)}</span><span class="muted small">${CH[q.chapter]}</span>${id in S.wrong ? `<span class="pill bad">錯題本</span>` : ""}</div>
-      <p class="stem">${rich(q.stem)}</p>
+      <p class="stem">${stemHtml(q)}</p>
       <div class="opts">${optHtml}</div>
       ${answered ? `
         <p class="verdict ${ok ? "ok" : "no"}">${ok ? "答對了" : `答錯了，正確答案是 ${q.answer}`}</p>
-        <div class="explain"><p>${rich(q.explain.replace(/〔[^〕]*〕/g, "").trim())}</p>${q.ref ? `<span class="ref">原書 ${esc(q.ref)}</span>` : ""}</div>` : ""}
+        ${explainHtml(q)}` : ""}
     </article>
     <div class="navbar">
       <button class="btn" id="prev" ${s.i ? "" : "disabled"}>上一題</button>
@@ -460,11 +497,11 @@ function vSummary(app) {
 function reviewItem(q, pick, open) {
   const ok = pick === q.answer;
   return `<details class="rv" ${open ? "open" : ""}>
-    <summary><span class="data muted">${q.source.startsWith("mock") ? "Q" + q.n : "CH" + q.chapter}</span><span>${esc(q.stem)}</span><span class="pill ${ok ? "ok" : "bad"}">${pick ? pick : "未答"} → ${q.answer}</span></summary>
+    <summary><span class="data muted">${q.source.startsWith("mock") ? "Q" + q.n : "CH" + q.chapter}</span><span>${esc(stemShort(q))}</span><span class="pill ${ok ? "ok" : "bad"}">${pick ? pick : "未答"} → ${q.answer}</span></summary>
     <div class="body">
       <p class="muted small">${srcLabel(q)} · ${CH[q.chapter]}</p>
-      <div class="ans-line">${q.options.map((o, k) => { const L = "ABCD"[k]; return `<div${L === q.answer ? ` style="color:var(--ok);font-weight:600"` : L === pick ? ` style="color:var(--bad)"` : ""}>${L}. ${esc(o)}</div>`; }).join("")}</div>
-      <div class="explain"><p>${rich(q.explain.replace(/〔[^〕]*〕/g, "").trim())}</p>${q.ref ? `<span class="ref">原書 ${esc(q.ref)}</span>` : ""}</div>
+      <div class="ans-line">${q.options.map((o, k) => { const L = "ABCD"[k]; return `<div${L === q.answer ? ` style="color:var(--ok);font-weight:600"` : L === pick ? ` style="color:var(--bad)"` : ""}>${L}. ${optText(q, k)}</div>`; }).join("")}</div>
+      ${explainHtml(q)}
     </div>
   </details>`;
 }
@@ -482,7 +519,7 @@ function vMock(app) {
   };
   app.innerHTML = `
     <h1>模擬考</h1>
-    <p class="muted">50 題單選、跨章混合，${MOCK_MIN} 分鐘，每題 2 分。考試中不顯示對錯，交卷後才看分數和詳解。≥ 80 分代表準備充分。</p>
+    <p class="muted">50 題單選、跨章混合，${MOCK_MIN} 分鐘，每題 2 分。考試中不顯示對錯，交卷後才看分數和詳解。≥ 80 分代表準備充分。正式考試是英文，模擬考建議切到右上角的 <b>EN</b>。</p>
     ${card("mock1", "依原書範例題難度出題。")}
     ${card("mock2", "比第一回難一些，情境題比例較高。")}
     ${hist.length ? `<section class="panel"><h2>考試紀錄</h2><div class="table-wrap"><table>
@@ -515,8 +552,8 @@ function vMockRun(app) {
     </div>
     <article class="panel">
       <div class="row"><span class="pill gold">第 ${r.cur + 1} 題</span><button class="chip" id="flag" aria-pressed="${!!r.flags[q.id]}">${r.flags[q.id] ? "已標記" : "標記稍後再看"}</button></div>
-      <p class="stem">${rich(q.stem)}</p>
-      <div class="opts">${q.options.map((o, k) => { const L = "ABCD"[k]; return `<button class="opt ${pick === L ? "sel" : ""}" data-k="${L}"><span class="k">${L}</span><span>${esc(o)}</span></button>`; }).join("")}</div>
+      <p class="stem">${stemHtml(q)}</p>
+      <div class="opts">${q.options.map((o, k) => { const L = "ABCD"[k]; return `<button class="opt ${pick === L ? "sel" : ""}" data-k="${L}"><span class="k">${L}</span><span>${optText(q, k)}</span></button>`; }).join("")}</div>
     </article>
     <div class="navbar">
       <button class="btn" id="prev" ${r.cur ? "" : "disabled"}>上一題</button>
@@ -706,7 +743,7 @@ if ("serviceWorker" in navigator && (location.protocol === "https:" || location.
 /* ---------- boot ---------- */
 fetch("questions.json").then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(data => {
   Q = data; QI = Object.fromEntries(Q.map(q => [q.id, q]));
-  updateBadge();
+  updateBadge(); updateLang();
   const h = (location.hash || "").slice(1);
   go(S.run ? "mockrun" : ["home","practice","mock","wrong","backup"].includes(h) ? h : "home");
 }).catch(() => {
